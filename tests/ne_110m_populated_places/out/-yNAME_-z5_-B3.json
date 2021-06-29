@@ -3,6 +3,7 @@
 "center": "16.875000,44.951199,5",
 "description": "tests/ne_110m_populated_places/out/-yNAME_-z5_-B3.json.check.mbtiles",
 "format": "pbf",
+"generator_options": "./tippecanoe -q -a@ -f -o tests/ne_110m_populated_places/out/-yNAME_-z5_-B3.json.check.mbtiles -yNAME -z5 -B3 tests/ne_110m_populated_places/in.json",
 "json": "{\"vector_layers\": [ { \"id\": \"in\", \"description\": \"\", \"minzoom\": 0, \"maxzoom\": 5, \"fields\": {\"NAME\": \"String\"} } ],\"tilestats\": {\"layerCount\": 1,\"layers\": [{\"layer\": \"in\",\"count\": 243,\"geometry\": \"Point\",\"attributeCount\": 1,\"attributes\": [{\"attribute\": \"NAME\",\"count\": 243,\"type\": \"string\",\"values\": [\"Abidjan\",\"Abu Dhabi\",\"Abuja\",\"Accra\",\"Addis Ababa\",\"Algiers\",\"Amman\",\"Amsterdam\",\"Andorra\",\"Ankara\",\"Antananarivo\",\"Apia\",\"Ashgabat\",\"Asmara\",\"Astana\",\"Asuncion\",\"Athens\",\"Atlanta\",\"Auckland\",\"Baghdad\",\"Baguio City\",\"Baku\",\"Bamako\",\"Bandar Seri Begawan\",\"Bangalore\",\"Bangkok\",\"Bangui\",\"Banjul\",\"Basseterre\",\"Beijing\",\"Beirut\",\"Belgrade\",\"Belmopan\",\"Berlin\",\"Bern\",\"Bir Lehlou\",\"Bishkek\",\"Bissau\",\"Bloemfontein\",\"Bogota\",\"Brasilia\",\"Bratislava\",\"Brazzaville\",\"Bridgetown\",\"Brussels\",\"Bucharest\",\"Budapest\",\"Buenos Aires\",\"Bujumbura\",\"Cairo\",\"Canberra\",\"Cape Town\",\"Caracas\",\"Casablanca\",\"Castries\",\"Chengdu\",\"Chicago\",\"Chisinau\",\"Colombo\",\"Conakry\",\"Cotonou\",\"Dakar\",\"Damascus\",\"Dar es Salaam\",\"Denver\",\"Dhaka\",\"Dili\",\"Djibouti\",\"Dodoma\",\"Doha\",\"Dubai\",\"Dublin\",\"Dushanbe\",\"Freetown\",\"Funafuti\",\"Gaborone\",\"Geneva\",\"Georgetown\",\"Guatemala\",\"Hanoi\",\"Harare\",\"Hargeysa\",\"Havana\",\"Helsinki\",\"Hong Kong\",\"Honiara\",\"Houston\",\"Islamabad\",\"Istanbul\",\"Jakarta\",\"Jerusalem\",\"Johannesburg\",\"Juba\",\"Kabul\",\"Kampala\",\"Kathmandu\",\"Khartoum\",\"Kiev\",\"Kigali\",\"Kingston\"]}]}]}}",
 "maxzoom": "5",
 "minzoom": "0",
@@ -155,6 +156,8 @@
 { "type": "FeatureCollection", "properties": { "zoom": 2, "x": 0, "y": 2 }, "features": [
 { "type": "FeatureCollection", "properties": { "layer": "in", "version": 2, "extent": 4096 }, "features": [
 { "type": "Feature", "properties": { "NAME": "Nukualofa" }, "geometry": { "type": "Point", "coordinates": [ -175.231934, -21.125498 ] } }
+,
+{ "type": "Feature", "properties": { "NAME": "Funafuti" }, "geometry": { "type": "Point", "coordinates": [ -180.791016, -8.515836 ] } }
 ] }
 ] }
 ,
@@ -409,6 +412,8 @@
 { "type": "Feature", "properties": { "NAME": "Nukualofa" }, "geometry": { "type": "Point", "coordinates": [ -175.220947, -21.135745 ] } }
 ,
 { "type": "Feature", "properties": { "NAME": "Apia" }, "geometry": { "type": "Point", "coordinates": [ -171.749268, -13.838080 ] } }
+,
+{ "type": "Feature", "properties": { "NAME": "Funafuti" }, "geometry": { "type": "Point", "coordinates": [ -180.791016, -8.515836 ] } }
 ] }
 ] }
 ,

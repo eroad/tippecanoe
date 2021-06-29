@@ -29,6 +29,7 @@
 #include "dirtiles.hpp"
 #include "evaluator.hpp"
 #include "csv.hpp"
+#include "text.hpp"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -39,11 +40,13 @@
 int pk = false;
 int pC = false;
 int pg = false;
+int pe = false;
 size_t CPUS;
 int quiet = false;
 int maxzoom = 32;
 int minzoom = 0;
 std::map<std::string, std::string> renames;
+bool exclude_all = false;
 
 struct stats {
 	int minzoom;
@@ -216,7 +219,7 @@ void handle(std::string message, int z, unsigned x, unsigned y, std::map<std::st
 					continue;
 				}
 
-				if (exclude.count(std::string(key)) == 0 && exclude_attributes.count(std::string(key)) == 0) {
+				if (!exclude_all && exclude.count(std::string(key)) == 0 && exclude_attributes.count(std::string(key)) == 0) {
 					type_and_string tas;
 					tas.type = type;
 					tas.string = value;
@@ -243,11 +246,13 @@ void handle(std::string message, int z, unsigned x, unsigned y, std::map<std::st
 								} else if (is_number(joinval)) {
 									attr_type = mvt_double;
 								}
+							} else if (pe) {
+								attr_type = mvt_null;
 							}
 
 							const char *sjoinkey = joinkey.c_str();
 
-							if (exclude.count(joinkey) == 0 && exclude_attributes.count(joinkey) == 0) {
+							if (!exclude_all && exclude.count(joinkey) == 0 && exclude_attributes.count(joinkey) == 0 && attr_type != mvt_null) {
 								mvt_value outval;
 								if (attr_type == mvt_string) {
 									outval.type = mvt_string;
@@ -359,6 +364,7 @@ struct reader {
 
 	std::vector<zxy> dirtiles;
 	std::string dirbase;
+	std::string name;
 
 	sqlite3 *db = NULL;
 	sqlite3_stmt *stmt = NULL;
@@ -396,14 +402,15 @@ struct reader {
 
 struct reader *begin_reading(char *fname) {
 	struct reader *r = new reader;
-	struct stat st;
+	r->name = fname;
 
+	struct stat st;
 	if (stat(fname, &st) == 0 && (st.st_mode & S_IFDIR) != 0) {
 		r->db = NULL;
 		r->stmt = NULL;
 		r->next = NULL;
 
-		r->dirtiles = enumerate_dirtiles(fname);
+		r->dirtiles = enumerate_dirtiles(fname, minzoom, maxzoom);
 		r->dirbase = fname;
 
 		if (r->dirtiles.size() == 0) {
@@ -613,7 +620,7 @@ void handle_vector_layers(json_object *vector_layers, std::map<std::string, laye
 	}
 }
 
-void decode(struct reader *readers, std::map<std::string, layermap_entry> &layermap, sqlite3 *outdb, const char *outdir, struct stats *st, std::vector<std::string> &header, std::map<std::string, std::vector<std::string>> &mapping, std::set<std::string> &exclude, int ifmatched, std::string &attribution, std::string &description, std::set<std::string> &keep_layers, std::set<std::string> &remove_layers, std::string &name, json_object *filter, std::map<std::string, std::string> &attribute_descriptions) {
+void decode(struct reader *readers, std::map<std::string, layermap_entry> &layermap, sqlite3 *outdb, const char *outdir, struct stats *st, std::vector<std::string> &header, std::map<std::string, std::vector<std::string>> &mapping, std::set<std::string> &exclude, int ifmatched, std::string &attribution, std::string &description, std::set<std::string> &keep_layers, std::set<std::string> &remove_layers, std::string &name, json_object *filter, std::map<std::string, std::string> &attribute_descriptions, std::string &generator_options) {
 	std::vector<std::map<std::string, layermap_entry>> layermaps;
 	for (size_t i = 0; i < CPUS; i++) {
 		layermaps.push_back(std::map<std::string, layermap_entry>());
@@ -731,6 +738,11 @@ void decode(struct reader *readers, std::map<std::string, layermap_entry> &layer
 		if (sqlite3_prepare_v2(db, "SELECT value from metadata where name = 'maxzoom'", -1, &r->stmt, NULL) == SQLITE_OK) {
 			if (sqlite3_step(r->stmt) == SQLITE_ROW) {
 				int maxz = min(sqlite3_column_int(r->stmt, 0), maxzoom);
+
+				if (st->maxzoom >= 0 && maxz != st->maxzoom) {
+					fprintf(stderr, "Warning: mismatched maxzooms: %d in %s vs previous %d\n", maxz, r->name.c_str(), st->maxzoom);
+				}
+
 				st->maxzoom = max(st->maxzoom, maxz);
 			}
 			sqlite3_finalize(r->stmt);
@@ -769,7 +781,10 @@ void decode(struct reader *readers, std::map<std::string, layermap_entry> &layer
 					if (name.size() == 0) {
 						name = std::string((char *) s);
 					} else {
-						name += " + " + std::string((char *) s);
+						std::string proposed = name + " + " + std::string((char *) s);
+						if (proposed.size() < 255) {
+							name = proposed;
+						}
 					}
 				}
 			}
@@ -810,6 +825,20 @@ void decode(struct reader *readers, std::map<std::string, layermap_entry> &layer
 
 			sqlite3_finalize(r->stmt);
 		}
+		if (sqlite3_prepare_v2(db, "SELECT value from metadata where name = 'generator_options'", -1, &r->stmt, NULL) == SQLITE_OK) {
+			if (sqlite3_step(r->stmt) == SQLITE_ROW) {
+				const unsigned char *s = sqlite3_column_text(r->stmt, 0);
+				if (s != NULL) {
+					if (generator_options.size() != 0) {
+						generator_options.append("; ");
+						generator_options.append((const char *) s);
+					} else {
+						generator_options = (const char *) s;
+					}
+				}
+			}
+			sqlite3_finalize(r->stmt);
+		}
 
 		// Closes either real db or temp mirror of metadata.json
 		if (sqlite3_close(db) != SQLITE_OK) {
@@ -822,7 +851,7 @@ void decode(struct reader *readers, std::map<std::string, layermap_entry> &layer
 }
 
 void usage(char **argv) {
-	fprintf(stderr, "Usage: %s [-f] [-i] [-pk] [-pC] [-c joins.csv] [-x exclude ...] -o new.mbtiles source.mbtiles ...\n", argv[0]);
+	fprintf(stderr, "Usage: %s [-f] [-i] [-pk] [-pC] [-c joins.csv] [-X] [-x exclude ...] -o new.mbtiles source.mbtiles ...\n", argv[0]);
 	exit(EXIT_FAILURE);
 }
 
@@ -865,6 +894,7 @@ int main(int argc, char **argv) {
 		{"prevent", required_argument, 0, 'p'},
 		{"csv", required_argument, 0, 'c'},
 		{"exclude", required_argument, 0, 'x'},
+		{"exclude-all", no_argument, 0, 'X'},
 		{"layer", required_argument, 0, 'l'},
 		{"exclude-layer", required_argument, 0, 'L'},
 		{"quiet", no_argument, 0, 'q'},
@@ -876,6 +906,7 @@ int main(int argc, char **argv) {
 
 		{"no-tile-size-limit", no_argument, &pk, 1},
 		{"no-tile-compression", no_argument, &pC, 1},
+		{"empty-csv-columns-are-null", no_argument, &pe, 1},
 		{"no-tile-stats", no_argument, &pg, 1},
 
 		{0, 0, 0, 0},
@@ -895,6 +926,8 @@ int main(int argc, char **argv) {
 	extern int optind;
 	extern char *optarg;
 	int i;
+
+	std::string commandline = format_commandline(argc, argv);
 
 	while ((i = getopt_long(argc, argv, getopt_str.c_str(), long_options, NULL)) != -1) {
 		switch (i) {
@@ -952,6 +985,8 @@ int main(int argc, char **argv) {
 				pC = true;
 			} else if (strcmp(optarg, "g") == 0) {
 				pg = true;
+			} else if (strcmp(optarg, "e") == 0) {
+				pe = true;
 			} else {
 				fprintf(stderr, "%s: Unknown option for -p%s\n", argv[0], optarg);
 				exit(EXIT_FAILURE);
@@ -970,6 +1005,10 @@ int main(int argc, char **argv) {
 
 		case 'x':
 			exclude.insert(std::string(optarg));
+			break;
+
+		case 'X':
+			exclude_all = true;
 			break;
 
 		case 'l':
@@ -1015,6 +1054,11 @@ int main(int argc, char **argv) {
 		usage(argv);
 	}
 
+	if (minzoom > maxzoom) {
+		fprintf(stderr, "%s: Minimum zoom -Z%d cannot be greater than maxzoom -z%d\n", argv[0], minzoom, maxzoom);
+		exit(EXIT_FAILURE);
+	}
+
 	if (out_mbtiles != NULL) {
 		if (force) {
 			unlink(out_mbtiles);
@@ -1022,7 +1066,7 @@ int main(int argc, char **argv) {
 		outdb = mbtiles_open(out_mbtiles, argv, 0);
 	}
 	if (out_dir != NULL) {
-		check_dir(out_dir, force, false);
+		check_dir(out_dir, argv, force, false);
 	}
 
 	struct stats st;
@@ -1052,8 +1096,9 @@ int main(int argc, char **argv) {
 	}
 
 	std::map<std::string, std::string> attribute_descriptions;
+	std::string generator_options;
 
-	decode(readers, layermap, outdb, out_dir, &st, header, mapping, exclude, ifmatched, attribution, description, keep_layers, remove_layers, name, filter, attribute_descriptions);
+	decode(readers, layermap, outdb, out_dir, &st, header, mapping, exclude, ifmatched, attribution, description, keep_layers, remove_layers, name, filter, attribute_descriptions, generator_options);
 
 	if (set_attribution.size() != 0) {
 		attribution = set_attribution;
@@ -1065,7 +1110,21 @@ int main(int argc, char **argv) {
 		name = set_name;
 	}
 
-	mbtiles_write_metadata(outdb, out_dir, name.c_str(), st.minzoom, st.maxzoom, st.minlat, st.minlon, st.maxlat, st.maxlon, st.midlat, st.midlon, 0, attribution.size() != 0 ? attribution.c_str() : NULL, layermap, true, description.c_str(), !pg, attribute_descriptions, "tile-join");
+	if (generator_options.size() != 0) {
+		generator_options.append("; ");
+	}
+	generator_options.append(commandline);
+
+	for (auto &l : layermap) {
+		if (l.second.minzoom < st.minzoom) {
+			st.minzoom = l.second.minzoom;
+		}
+		if (l.second.maxzoom > st.maxzoom) {
+			st.maxzoom = l.second.maxzoom;
+		}
+	}
+
+	mbtiles_write_metadata(outdb, out_dir, name.c_str(), st.minzoom, st.maxzoom, st.minlat, st.minlon, st.maxlat, st.maxlon, st.midlat, st.midlon, 0, attribution.size() != 0 ? attribution.c_str() : NULL, layermap, true, description.c_str(), !pg, attribute_descriptions, "tile-join", generator_options);
 
 	if (outdb != NULL) {
 		mbtiles_close(outdb, argv[0]);

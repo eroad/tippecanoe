@@ -3,6 +3,7 @@
 "center": "11.250000,48.378236,4",
 "description": "tests/ne_110m_populated_places/out/-yNAME_-z4_--no-tile-stats.json.check.mbtiles",
 "format": "pbf",
+"generator_options": "./tippecanoe -q -a@ -f -o tests/ne_110m_populated_places/out/-yNAME_-z4_--no-tile-stats.json.check.mbtiles -yNAME -z4 --no-tile-stats tests/ne_110m_populated_places/in.json",
 "json": "{\"vector_layers\": [ { \"id\": \"in\", \"description\": \"\", \"minzoom\": 0, \"maxzoom\": 4, \"fields\": {\"NAME\": \"String\"} } ]}",
 "maxzoom": "4",
 "minzoom": "0",
@@ -215,6 +216,8 @@
 { "type": "FeatureCollection", "properties": { "zoom": 3, "x": 0, "y": 4 }, "features": [
 { "type": "FeatureCollection", "properties": { "layer": "in", "version": 2, "extent": 4096 }, "features": [
 { "type": "Feature", "properties": { "NAME": "Nukualofa" }, "geometry": { "type": "Point", "coordinates": [ -175.220947, -21.135745 ] } }
+,
+{ "type": "Feature", "properties": { "NAME": "Funafuti" }, "geometry": { "type": "Point", "coordinates": [ -180.791016, -8.515836 ] } }
 ] }
 ] }
 ,
